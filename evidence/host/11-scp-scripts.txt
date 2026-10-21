@@ -1,0 +1,2 @@
+$ scp -i C:\Users\user\.ssh\id_ed25519_vm scripts\backup-site.sh scripts\restore-site.sh configs\systemd\backup-site.service configs\systemd\backup-site.timer "admin@192.0.2.10:~/"
+[exit code: 0]

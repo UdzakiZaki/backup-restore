@@ -1,0 +1,2 @@
+$ scp -i C:\Users\user\.ssh\id_ed25519_vm raw\keys\id_backup.pub "admin@192.0.2.20:~/"
+[exit code: 0]

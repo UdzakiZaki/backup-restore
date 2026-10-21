@@ -1,0 +1,4 @@
+$ & C:\Program Files\Oracle\VirtualBox\VBoxManage.exe snapshot "Master-Server" take before-stage3 --description "before stage 3"
+0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+Snapshot taken. UUID: cc52b107-46d1-4d33-aef4-1ed6ff52cd5b
+[exit code: 0]

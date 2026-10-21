@@ -1,0 +1,9 @@
+$ & C:\Program Files\Oracle\VirtualBox\VBoxManage.exe showvminfo "Backup Shadow" --machinereadable | Select-String 'macaddress|^nic[12]='
+
+macaddress1="080027CFED48"
+nic1="nat"
+macaddress2="080027B11E2C"
+nic2="hostonly"
+
+
+[exit code: 0]

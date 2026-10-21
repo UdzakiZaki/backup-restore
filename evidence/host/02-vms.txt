@@ -1,0 +1,4 @@
+$ & C:\Program Files\Oracle\VirtualBox\VBoxManage.exe list vms
+"Master-Server" {afd8ae39-a95f-4b32-8e59-57c4d9786f29}
+"Backup Shadow" {a8db6474-29f2-4ade-8c94-4e0f6e5bba3a}
+[exit code: 0]

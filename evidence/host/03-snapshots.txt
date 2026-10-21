@@ -1,0 +1,10 @@
+$ & C:\Program Files\Oracle\VirtualBox\VBoxManage.exe snapshot "Master-Server" list
+   Name: Clear System (UUID: ee418732-82a2-4cc9-ae34-1dba4cd94641)
+      Name: 1.2 Stage Compleated (UUID: 9e21295d-cbd0-4e7f-b53a-649c4dbdcca9)
+         Name: before-fw (UUID: 1fb97a00-9468-4eed-8369-fcb54b163f00)
+            Name: after-firewall (UUID: 3ccff868-a20a-4c82-a707-a01c6fa180a4)
+               Name: After-audit (UUID: 7961b0a4-8fcd-499e-af51-9d3300105595)
+                  Name: before-stage-2 (UUID: 611e4d9e-0317-4a8e-b9c1-dbbe5303101e)
+                     Name: before-stage3 (UUID: 2ecc427d-e41a-472f-86db-5cdb9f923f03) *
+                     Description: before stage 3
+[exit code: 0]

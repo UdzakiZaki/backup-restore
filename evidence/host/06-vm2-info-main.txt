@@ -1,0 +1,12 @@
+$ & C:\Program Files\Oracle\VirtualBox\VBoxManage.exe showvminfo "Master-Server" --machinereadable | Select-String '^(memory|cpus|ostype|nic[12]|macaddress[12])='
+
+ostype="Red Hat (64-bit)"
+memory=2048
+cpus=2
+macaddress1="080027532B53"
+nic1="nat"
+macaddress2="080027F199CD"
+nic2="hostonly"
+
+
+[exit code: 0]
