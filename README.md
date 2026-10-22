@@ -1,0 +1,48 @@
+# Резервное копирование и восстановление сайта
+
+Было настроено резервное копирование сайта и конфигов с `srv-main` на `srv-backup` через rsync по SSH. Архив `tar.gz` сопровождается SHA-256, запуском управляет systemd timer. Я проверил восстановление сайта и конфигурации Nginx, сохранил время выполнения и отказ на повреждённом архиве.
+
+## Окружение
+
+Я использовал Windows с PowerShell, VirtualBox и две ВМ CentOS Stream 10: `srv-main` и `srv-backup`. На основном сервере установлены rsync `3.4.4-1.el10` и tar `1.35-13.el10`; на сервере копий rsync `3.4.4-1.el10`. Версии сохранены в [проверке инструментов](evidence/main/02b-tools-after.txt) и [сведениях о сервере копий](evidence/backup-server/02-identity.txt). Версия Nginx `1.26.3`.
+
+В [backup-site.sh](scripts/backup-site.sh) включил `/srv/site`, `/etc/nginx`, drop-in SSH, зоны firewalld, правила auditd и sudoers. В [restore-site.sh](scripts/restore-site.sh) ограничил восстановление каталогами `/srv/site` и `/etc/nginx`. Скрипт проверяет SHA-256 до распаковки, применяет `restorecon`, проверяет Nginx и выполняет `reload-or-restart`.
+
+Ключ бэкапа работает без passphrase и ограничен параметрами `restrict` и `from` в `authorized_keys`. Таймер настроен на 03:00 со случайной задержкой до пяти минут и `Persistent=true`. В скрипте заданы пределы хранения 7 удалённых и 2 локальных копий; отдельный тест достижения этих пределов я не проводил.
+
+## Проверки
+
+| Проверка                         | Ожидание                                                             | Сохранённый результат                                                          | Подтверждение                                                                                                                                                                                                                                                  |
+| -------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ключ и учётная запись            | Отдельный пользователь backup, ограниченный ключ                     | Пароль backup заблокирован, ключ содержит `restrict,from`, запрос PTY отклонён | [Пароль](evidence/backup-server/05-password-locked.txt), [ключ](evidence/backup-server/06-authorized-keys.txt), [PTY](evidence/main/06-pty-refused.txt)                                                                                                        |
+| Скрипты и unit-файлы             | Синтаксис корректен, установленные файлы совпадают с опубликованными | Проверки синтаксиса успешны, четыре SHA-256 совпадают                          | [Bash](evidence/main/07a-syntax-backup.txt), [restore](evidence/main/07b-syntax-restore.txt), [units](evidence/main/09-unit-verify.txt), [хеши ВМ](https://github.com/UdzakiZaki/server-diagnostics-python/blob/d06b34b/evidence/main/43-installed-hashes.txt) |
+| Первая копия                     | Архив доставлен и проверен                                           | Удалённая проверка SHA-256 — `OK`, служба завершилась успешно                  | [Журнал](evidence/main/13-first-run-journal.txt), [копии](evidence/backup-server/08-backups.txt), [SHA-256](evidence/backup-server/09-checksum-verify.txt)                                                                                                     |
+| Состав архива                    | В удалённом архиве есть сайт и выбранные конфиги                     | Сохранён полный список архива `main-20261021-181955.tar.gz`                    | [Список удалённого архива](https://github.com/UdzakiZaki/server-diagnostics-python/blob/d06b34b/evidence/main/46-remote-archive-listing.txt)                                                                                                                   |
+| Недоступный ключ                 | Передача не объявляется успешной                                     | Отказ SSH, ошибка rsync, код 255                                               | [Тест](evidence/main/15-failure-test.txt)                                                                                                                                                                                                                      |
+| Запуск таймером                  | Служба запускается без ручной команды                                | Ускоренный таймер сработал, журнал содержит успешные копии                     | [Таймер](evidence/main/18-timer-demo.txt), [журнал](evidence/main/19-timer-runs.txt), [копии](evidence/backup-server/11-backups-after-timer.txt)                                                                                                               |
+| Итоговое расписание              | Ежедневный календарь без тестового drop-in                           | `03:00:00`, задержка `5min`, `Persistent=yes`, `DropInPaths=`                  | [Параметры](https://github.com/UdzakiZaki/server-diagnostics-python/blob/d06b34b/evidence/main/44-effective-timer.txt), [units](https://github.com/UdzakiZaki/server-diagnostics-python/blob/d06b34b/evidence/main/45-units-cat.txt)                           |
+| Восстановление сайта             | Содержимое файлов и дерево совпадают с исходными                     | `MANIFEST_IDENTICAL`, `TREE_IDENTICAL`, страница `Test site`                   | [Запуск](evidence/main/29-restore.txt), [дерево](evidence/main/31b-tree-compare.txt), [manifest](evidence/main/32-manifest-compare.txt), [страница](evidence/main/30-site-after-restore.txt)                                                                   |
+| Восстановление конфига           | SHA-256 совпадает с исходным и архивным, Nginx принимает конфиг      | Все три хеша совпадают, `tampered lines: 0`, `nginx -t` успешен                | [До](evidence/main/24-nginx-conf-hash-before.txt), [после](evidence/main/33-nginx-conf-hash-after.txt), [nginx -t](evidence/main/34-nginx-test.txt)                                                                                                            |
+| Время восстановления             | Сохранён фактический замер                                           | Внешний `time`: `real 0m2.127s`; внутренняя оценка скрипта: `2.1 s`            | [Замер](evidence/main/29-restore.txt)                                                                                                                                                                                                                          |
+| Повреждённый архив               | Отказ до распаковки                                                  | SHA-256 не совпал, код 1; следующий HTTP-запрос получил 200                    | [Отказ](evidence/main/37-restore-corrupt-refused.txt), [HTTP](evidence/main/38-site-still-intact.txt)                                                                                                                                                          |
+| События audit при восстановлении | Есть записи о проверяемых изменениях                                 | Аудит восстановления не подтверждён: журнал ротирован, события не сохранились  | —                                                                                                                                                                                                                                                              |
+
+Дополнительные проверки 43–47 сейчас опубликованы в `server-diagnostics-python/evidence/main/`; ссылки выше ведут на их фактическое место.
+
+## С чем столкнулся
+
+На основном сервере сначала не было rsync и tar. После установки я повторно проверил версии. На сервере копий попытка вывести состав архива не прошла: `tar: command not found`; успешный список я позже получил с srv-main, прочитав удалённый архив по SSH.
+
+После завершения службы `Type=oneshot` команда `systemctl status` показала `inactive (dead)` и код 3. Успешное выполнение я проверил по журналу и SHA-256.
+
+Для демонстрации таймера я временно использовал drop-in `demo.conf`, затем вернул ежедневное расписание. Итоговые параметры не содержат drop-in. Ускоренная проверка не является доказательством состоявшегося ежедневного запуска в 03:00.
+
+Журнал аудита уже ротирован, события восстановления не сохранились. Аудит восстановления не подтверждён. Наличие загруженного правила `nginx_config` подтверждено [отдельно](https://github.com/UdzakiZaki/server-diagnostics-python/blob/d06b34b/evidence/main/47-audit-rules.txt). В ранних записях `rec` печатала команды без кавычек, позже я исправил запись через `%q`.
+
+## Воспроизводимость
+
+Скрипты находятся в [scripts](scripts/), unit-файлы — в [configs/systemd](configs/systemd/), порядок работы — в [docs/work-log.md](docs/work-log.md). Я сохранил доказательства с основного сервера, сервера копий и Windows-хоста. Сырые записи из `raw/` не публикую.
+
+Файл `/etc/default/backup-site` с реальным адресом сервера копий намеренно не включён в репозиторий. Оба скрипта читают его перед применением значений по умолчанию; опубликованный адрес `192.0.2.20` не является адресом рабочего стенда.
+
+Для публикации я заменил адреса на диапазон `192.0.2.0/24`, имя администратора — на `admin`, имя пользователя Windows — на `user`, отпечатки — на `SHA256:<fingerprint>`, содержимое публичного ключа — на `<public-key>`. Полное восстановление ОС и всех конфигов из архива я этим тестом не проверял.
